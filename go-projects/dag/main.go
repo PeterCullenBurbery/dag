@@ -8,6 +8,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 	"github.com/PeterCullenBurbery/go_functions_002/v3/system_management_functions"
+	"github.com/PeterCullenBurbery/go_functions_002/v3/math_functions"
 )
 
 type dag_file struct {
@@ -43,54 +44,15 @@ func main() {
 	}
 	dag := parsed.Dag
 
-	// Step 4: Topologically sort the DAG
-	execution_order, err := topological_sort(dag)
+	// Step 4: Reverse topologically sort the DAG
+	execution_order, err := math_functions.Reverse_topological_sort(dag)
 	if err != nil {
-		log.Fatalf("❌ topological_sort_failed: %v", err)
+		log.Fatalf("❌ reverse_topological_sort_failed: %v", err)
 	}
 
-	// Step 5: Display the order
-	fmt.Println("✅ topological_execution_order:")
+	// Step 5: Display the reverse order
+	fmt.Println("🔁 reverse_topological_execution_order:")
 	for i, task := range execution_order {
 		fmt.Printf("%2d. %s\n", i+1, task)
 	}
-}
-
-func topological_sort(graph map[string][]string) ([]string, error) {
-	in_degree := make(map[string]int)
-	for node := range graph {
-		in_degree[node] = 0
-	}
-	for _, deps := range graph {
-		for _, dep := range deps {
-			in_degree[dep]++
-		}
-	}
-
-	var queue []string
-	for node, degree := range in_degree {
-		if degree == 0 {
-			queue = append(queue, node)
-		}
-	}
-
-	var sorted []string
-	for len(queue) > 0 {
-		current := queue[0]
-		queue = queue[1:]
-		sorted = append(sorted, current)
-
-		for _, neighbor := range graph[current] {
-			in_degree[neighbor]--
-			if in_degree[neighbor] == 0 {
-				queue = append(queue, neighbor)
-			}
-		}
-	}
-
-	if len(sorted) != len(graph) {
-		return nil, fmt.Errorf("cycle detected: only sorted %d of %d tasks", len(sorted), len(graph))
-	}
-
-	return sorted, nil
 }

@@ -3,7 +3,7 @@ module dag
 go 1.24.4
 
 require (
-	github.com/PeterCullenBurbery/go_functions_002/v3 v3.3.4
+	github.com/PeterCullenBurbery/go_functions_002/v3 v3.4.1
 	gopkg.in/yaml.v3 v3.0.1
 )
 
