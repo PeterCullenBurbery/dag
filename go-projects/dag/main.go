@@ -2,130 +2,95 @@ package main
 
 import (
 	"fmt"
+	"log"
+	"os"
+	"path/filepath"
+
+	"gopkg.in/yaml.v3"
+	"github.com/PeterCullenBurbery/go_functions_002/v3/system_management_functions"
 )
 
-// Your DAG from before
-var dag = map[string][]string{
-	// Base installs
-	"install choco":              {},
-	"install powershell 7":       {},
-	"install vs code":            {},
-	"install 7 zip":              {},
-	"install voidtools everything": {},
-	"install WinSCP":             {},
-	"install miniconda":          {},
-
-	// Depends on choco
-	"install mobaxterm":         {"install choco"},
-	"install go":                {"install choco"},
-	"install notepad++":         {"install choco"},
-	"install sqlitebrowser":     {"install choco"},
-	"install java":              {"install choco"},
-	"install sharex":            {"install choco"},
-
-	// Depends on java
-	"install cherry-tree":       {"install java"},
-	"install sql developer":     {"install java"},
-	"install nirsoft":           {"install java"},
-	"install sys-internals":     {"install java"},
-
-	// UI Customizations
-	"set dark mode":             {},
-	"set start menu to left":    {},
-	"show file extensions":      {},
-	"show hidden files":         {},
-	"hide search box":           {},
-	"show seconds in taskbar":   {},
-	"set short date pattern":    {},
-	"set long date pattern":     {},
-	"set time pattern":          {},
-	"set 24 hour format":        {},
-	"set first day of week Monday": {},
-
-	// VS Code Config
-	"configure keyboard shortcuts for vs code": {"install vs code"},
-	"configure settings for vs code":           {"install vs code"},
-	"configure settings for windows terminal":  {"install powershell 7"},
-	"set windows terminal as default terminal application": {},
-
-	// VS Code extensions
-	"install golang.go":                         {"install go"},
-	"install ms-python.debugpy":                 {"install miniconda"},
-	"install ms-python.python":                  {"install miniconda"},
-	"install ms-python.vscode-pylance":          {"install miniconda"},
-	"install ms-vscode.powershell":              {"install powershell 7"},
-	"install redhat.java":                       {"install java"},
-	"install vscjava.vscode-gradle":             {"install java"},
-	"install vscjava.vscode-java-debug":         {"install java"},
-	"install vscjava.vscode-java-dependency":    {"install java"},
-	"install vscjava.vscode-java-pack":          {"install java"},
-	"install vscjava.vscode-java-test":          {"install java"},
-	"install vscjava.vscode-maven":              {"install java"},
-	"install tomoki1207.pdf":                    {},
-	"install visualstudioexptteam.intellicode-api-usage-examples": {},
-	"install visualstudioexptteam.vscodeintellicode":              {},
-
-	// Executables
-	"run powershell_modules.exe":     {},
-	"run powershell_005_profile.exe": {},
-	"run powershell_007_profile":     {"install powershell 7"},
-	"run pin_vs_code_to_taskbar.exe": {"install vs code"},
+type dag_file struct {
+	Dag map[string][]string `yaml:"dag"`
 }
 
-// TopologicalSort performs Kahn’s algorithm on a DAG
-func TopologicalSort(graph map[string][]string) ([]string, error) {
-	// Count incoming edges for each node
-	inDegree := make(map[string]int)
+func main() {
+	// Step 1: Convert blob URL to raw
+	raw_url, err := system_management_functions.Convert_blob_to_raw_github_url(
+		"https://github.com/PeterCullenBurbery/dag/blob/main/dag.yaml",
+	)
+	if err != nil {
+		log.Fatalf("❌ url_conversion_failed: %v", err)
+	}
+
+	// Step 2: Download dag.yaml
+	local_path := filepath.Join(os.TempDir(), "dag.yaml")
+	err = system_management_functions.Download_file(local_path, raw_url)
+	if err != nil {
+		log.Fatalf("❌ download_failed: %v", err)
+	}
+
+	// Step 3: Load and parse YAML
+	file_content, err := os.ReadFile(local_path)
+	if err != nil {
+		log.Fatalf("❌ file_read_failed: %v", err)
+	}
+
+	var parsed dag_file
+	err = yaml.Unmarshal(file_content, &parsed)
+	if err != nil {
+		log.Fatalf("❌ yaml_parse_failed: %v", err)
+	}
+	dag := parsed.Dag
+
+	// Step 4: Topologically sort the DAG
+	execution_order, err := topological_sort(dag)
+	if err != nil {
+		log.Fatalf("❌ topological_sort_failed: %v", err)
+	}
+
+	// Step 5: Display the order
+	fmt.Println("✅ topological_execution_order:")
+	for i, task := range execution_order {
+		fmt.Printf("%2d. %s\n", i+1, task)
+	}
+}
+
+func topological_sort(graph map[string][]string) ([]string, error) {
+	in_degree := make(map[string]int)
 	for node := range graph {
-		inDegree[node] = 0
+		in_degree[node] = 0
 	}
 	for _, deps := range graph {
 		for _, dep := range deps {
-			inDegree[dep]++
+			in_degree[dep]++
 		}
 	}
 
-	// Collect all nodes with in-degree 0
 	var queue []string
-	for node, deg := range inDegree {
-		if deg == 0 {
+	for node, degree := range in_degree {
+		if degree == 0 {
 			queue = append(queue, node)
 		}
 	}
 
 	var sorted []string
 	for len(queue) > 0 {
-		// Pop from front of queue
-		node := queue[0]
+		current := queue[0]
 		queue = queue[1:]
-		sorted = append(sorted, node)
+		sorted = append(sorted, current)
 
-		// Decrease in-degree of children
-		for _, neighbor := range graph[node] {
-			inDegree[neighbor]--
-			if inDegree[neighbor] == 0 {
+		for _, neighbor := range graph[current] {
+			in_degree[neighbor]--
+			if in_degree[neighbor] == 0 {
 				queue = append(queue, neighbor)
 			}
 		}
 	}
 
-	// If not all nodes were visited, cycle exists
 	if len(sorted) != len(graph) {
 		return nil, fmt.Errorf("cycle detected: only sorted %d of %d tasks", len(sorted), len(graph))
 	}
 
 	return sorted, nil
-}
-
-func main() {
-	order, err := TopologicalSort(dag)
-	if err != nil {
-		fmt.Println("❌ Error:", err)
-		return
-	}
-
-	fmt.Println("✅ Topological execution order:")
-	for i, task := range order {
-		fmt.Printf("%2d. %s\n", i+1, task)
-	}
 }
