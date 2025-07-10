@@ -72,6 +72,27 @@ func main() {
 			}
 		}
 	}
+
+	// Step 7: Count dependency usage and print
+	fmt.Println("\n📍 Nodes that are used as dependencies:")
+	dep_counts := get_dependency_usage_counts(dag)
+
+	// Extract keys and sort by count descending
+	type dep_count struct {
+		Name  string
+		Count int
+	}
+	var dep_list []dep_count
+	for name, count := range dep_counts {
+		dep_list = append(dep_list, dep_count{name, count})
+	}
+	sort.Slice(dep_list, func(i, j int) bool {
+		return dep_list[i].Count > dep_list[j].Count
+	})
+
+	for _, dc := range dep_list {
+		fmt.Printf("  - %s (%d)\n", dc.Name, dc.Count)
+	}
 }
 
 // compute_levels calculates the level of each node using DFS + memoization
@@ -133,9 +154,38 @@ func join_quoted(items []string, sep string) string {
 	if len(items) == 0 {
 		return ""
 	}
-	quoted := items[0]
+	quoted := `"` + items[0]
 	for _, item := range items[1:] {
 		quoted += sep + item
 	}
+	quoted += `"`
 	return quoted
+}
+
+// get_all_nodes_used_as_dependencies returns a sorted list of all nodes that appear in any dependency list
+func get_all_nodes_used_as_dependencies(dag map[string][]string) []string {
+	dep_map := make(map[string]struct{})
+	for _, deps := range dag {
+		for _, dep := range deps {
+			dep_map[dep] = struct{}{}
+		}
+	}
+
+	var result []string
+	for dep := range dep_map {
+		result = append(result, dep)
+	}
+	sort.Strings(result)
+	return result
+}
+
+// get_dependency_usage_counts returns a map of dependency -> number of times it is depended on
+func get_dependency_usage_counts(dag map[string][]string) map[string]int {
+	counts := make(map[string]int)
+	for _, deps := range dag {
+		for _, dep := range deps {
+			counts[dep]++
+		}
+	}
+	return counts
 }
