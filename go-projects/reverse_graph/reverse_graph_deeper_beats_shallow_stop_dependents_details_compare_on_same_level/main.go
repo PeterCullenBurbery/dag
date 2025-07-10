@@ -16,10 +16,10 @@ type dag_file struct {
 }
 
 type result struct {
-	seen  map[string]int          // dependent -> depth
-	depth int                     // max depth
-	bylvl map[int][]string        // level -> dependents
-	all   []string                // lexically sorted flat list
+	seen  map[string]int   // dependent -> depth
+	depth int              // max depth
+	bylvl map[int][]string // level -> dependents
+	all   []string         // lexically sorted flat list
 }
 
 func main() {
@@ -91,11 +91,12 @@ func analyze_dag(dag map[string][]string) []stats_entry {
 
 	// Step B: Memoized recursive traversal
 	cache := make(map[string]result)
-	var visit func(string) result
-	visit = func(node string) result {
+
+	visit := func(node string) result {
 		if val, ok := cache[node]; ok {
 			return val
 		}
+
 		seen := make(map[string]int)
 		bylvl := make(map[int][]string)
 		max_depth := 0
@@ -114,11 +115,13 @@ func analyze_dag(dag map[string][]string) []stats_entry {
 				recurse(dep, depth+1)
 			}
 		}
+
 		recurse(node, 1)
 
 		for _, level := range bylvl {
 			sort.Strings(level)
 		}
+
 		all := make([]string, 0, len(seen))
 		for dep := range seen {
 			all = append(all, dep)
